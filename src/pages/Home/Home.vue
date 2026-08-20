@@ -215,7 +215,7 @@
 
 
         <div class="section6 mt-12" id="restaurant">
-            <div class="fotos flex flex-col gap-2 mb-8">
+            <div class="fotos flex flex-col gap-2 mb-8 max-w-full">
                 <img src="/src/assets/images/fotos/restaurante1.webp" alt="Restaurante" class="w-full h-auto">
                 <div class="flex gap-2">
                     <img src="/src/assets/images/fotos/restaurante.webp" alt="Restaurante" class="w-full h-auto">
