@@ -1,7 +1,7 @@
 <template>
-    <HeaderNav class="w-full h-[80px] absolute" />
+
     <div class="hero">
-        <div class="overlay items-center flex flex-col justify-center">
+        <div class="overlay items-center pb-30 flex flex-col justify-end">
             <img src="/src/assets/images/nome.svg" alt="Logo" class="logo w-[180px] h-auto text-white" />
             <div class="beach tracking-[3px] text-white pt-2 text-[18px]">
                 BEACH
@@ -10,9 +10,21 @@
             <div class="beach tracking-[3px] text-white pt-2 text-[23px]">
                 GUIA
             </div>
+
+            <div class="arrow-down">
+                <svg width="18" height="11" viewBox="0 0 18 11" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1.5 1.5L9 8.5L16.5 1.5" stroke="white" stroke-width="3" stroke-linecap="round" />
+                </svg>
+
+            </div>
         </div>
         <div class="hero-content"></div>
     </div>
+
+
+    <HeaderNav class="w-full" />
+
+
     <div class="content">
         <div class="section1">
             <button class="btn-primary">RESTAURANTE</button>
@@ -27,6 +39,10 @@
                 toda sua riqueza.
             </h4>
         </div>
+
+
+
+
 
         <div class="section3 mt-12 items-start">
             <h2 class="title">Como Chegar</h2>
@@ -57,7 +73,7 @@
             <div class="line w-[110px] h-[1px] bg-[#565656] mt-3 mb-3"></div>
         </div>
 
-        <div class="section5 mt-8">
+        <div class="section5 mt-8" id="experience">
             <h2 class="title">Experiência KA BRU</h2>
 
             <div class="experience">
@@ -128,7 +144,7 @@
             <div class="line w-[110px] h-[1px] bg-[#565656] mt-3 mb-3"></div>
         </div>
 
-        <div class="section5 mt-8">
+        <div class="section5 mt-8" id="day-use">
             <h2 class="title">Day Use</h2>
             <h4 class="text-start mt-5">
                 Conheça nossa outra unidade: KA BRU 1100, localizado em outra região da Península;
@@ -177,14 +193,35 @@
                 </div>
 
                 <h3 class="text-start text-[#3b2f2b] font-medium text-[21px] tracking-[3px] mt-8">KA BRU 1100</h3>
+
+                <div class="fotos flex flex-col gap-2 mt-4">
+                    <img src="/src/assets/images/fotos/1100-6.webp" alt="Restaurante" class="w-full h-auto">
+                    <div class="flex flex-col gap-2">
+                        <img src="/src/assets/images/fotos/1100-1.webp" alt="Restaurante" class="w-full h-auto">
+                        <img src="/src/assets/images/fotos/1100-2.webp" alt="Restaurante" class="w-full h-auto">
+                        <img src="/src/assets/images/fotos/1100-3.webp" alt="Restaurante" class="w-full h-auto">
+                    </div>
+                </div>
+
                 <button class="btn-primary mt-4 tracking-[2px]">RESERVAR DAY USE</button>
             </div>
         </div>
+
+
         <div class="w-full flex justify-center items-center mt-12">
             <div class="line w-[110px] h-[1px] bg-[#565656] mt-3 mb-3"></div>
         </div>
 
-        <div class="section6 mt-12">
+
+
+        <div class="section6 mt-12" id="restaurant">
+            <div class="fotos flex flex-col gap-2 mb-8">
+                <img src="/src/assets/images/fotos/restaurante1.webp" alt="Restaurante" class="w-full h-auto">
+                <div class="flex gap-2">
+                    <img src="/src/assets/images/fotos/restaurante.webp" alt="Restaurante" class="w-full h-auto">
+                    <img src="/src/assets/images/fotos/restaurante2.webp" alt="Restaurante" class="w-full h-auto">
+                </div>
+            </div>
             <h2 class="title">Restaurante</h2>
             <h4 class="text-start mt-3 text-[#565656]">
                 Culinária brasileira integrada com a gastronomia clássica utilizando
@@ -192,6 +229,8 @@
                 procura atender a todos com um menu sustentável e personalizado, que muda diariamente
                 de acordo com a disponibilidade dos nossos produtos.
             </h4>
+
+
             <!-- CAFÉ DA MANHÃ -->
             <div class="breakfast">
                 <h3 class="text-start text-[#3b2f2b] text-[20px] tracking-[4px] mt-10">CAFÉ DA MANHÃ</h3>
@@ -260,14 +299,20 @@
                 </h4>
 
                 <div class="info-table mt-4">
-
                     <div class="flex gap-2 mt-2 items-center">
                         <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <circle cx="7.5" cy="7.5" r="6.75" stroke="#968473" stroke-width="1.5" />
                             <path d="M10.5 10L7.5 8.5V3.5" stroke="#968473" stroke-width="1.5" stroke-linecap="round" />
                         </svg>
-
                         <h3 class="text-[#968473]">16:00h - 18:00h</h3>
+                    </div>
+
+                    <div class="fotos flex flex-col gap-2 mt-4">
+                        <img src="/src/assets/images/fotos/tarde1.webp" alt="Restaurante" class="w-full h-auto">
+                        <div class="flex gap-2">
+                            <img src="/src/assets/images/fotos/tarde2.webp" alt="Restaurante" class="w-full h-auto">
+                            <img src="/src/assets/images/fotos/tarde5.webp" alt="Restaurante" class="w-full h-auto">
+                        </div>
                     </div>
                 </div>
 
