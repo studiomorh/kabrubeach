@@ -1,0 +1,16 @@
+{
+  "name": "kabrubeach",
+  "main": "worker/index.js",
+  "compatibility_date": "2024-11-11",
+  "observability": {
+    "enabled": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "kabrubeach",
+      "database_id": "00000000-0000-0000-0000-000000000001",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

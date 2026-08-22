@@ -1,15 +1,19 @@
 <script setup>
-import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { MENU_OPTIONS, menuByDashboardName, menuById } from '../../api/menus.js'
+import { currentUser, logout as logoutSession } from '../../api/session.js'
+import { getCurrentVersion, getVersion, listVersions, saveVersion as saveMenuVersion } from '../../api/versions.js'
 import PdfDocument from '../../pdfs/PdfDocument.vue'
 import {
-    almoco,
-    chefstable,
-    drinks,
-    jantar,
-    manha,
-    vinhos,
+  almoco,
+  chefstable,
+  drinks,
+  jantar,
+  manha,
+  vinhos,
 } from '../../pdfs/index.js'
+import { formatMenuDate } from '../../utils/dates.js'
 
 const router = useRouter()
 
@@ -19,32 +23,12 @@ const router = useRouter()
 |--------------------------------------------------------------------------
 */
 
-const menus = ref([
-  {
-    id: 1,
-    name: 'MENU ALMOÇO',
-  },
-  {
-    id: 2,
-    name: 'MENU JANTAR',
-  },
-  {
-    id: 3,
-    name: 'MENU CAFÉ DA MANHÃ',
-  },
-  {
-    id: 4,
-    name: 'MENU DRINKS',
-  },
-  {
-    id: 5,
-    name: 'MENU VINHOS',
-  },
-  {
-    id: 6,
-    name: 'CHEFS TABLE',
-  },
-])
+const cloneMenu = (menu) => JSON.parse(JSON.stringify(menu))
+
+const menus = MENU_OPTIONS.map((menu) => ({
+  id: menu.id,
+  name: menu.dashboardName,
+}))
 
 const languages = ['PT', 'EN', 'ES']
 
@@ -56,12 +40,12 @@ const showWarning = ref(true)
 const showPassword = ref(false)
 
 const pdfMenus = reactive({
-  'MENU ALMOÇO': almoco,
-  'MENU JANTAR': jantar,
-  'MENU CAFÉ DA MANHÃ': manha,
-  'MENU DRINKS': drinks,
-  'MENU VINHOS': vinhos,
-  'CHEFS TABLE': chefstable,
+  'MENU ALMOÇO': cloneMenu(almoco),
+  'MENU JANTAR': cloneMenu(jantar),
+  'MENU CAFÉ DA MANHÃ': cloneMenu(manha),
+  'MENU DRINKS': cloneMenu(drinks),
+  'MENU VINHOS': cloneMenu(vinhos),
+  'CHEFS TABLE': cloneMenu(chefstable),
 })
 
 /*
@@ -70,28 +54,15 @@ const pdfMenus = reactive({
 |--------------------------------------------------------------------------
 */
 
-const history = ref([
-  {
-    date: '07/JUNHO/2026',
-    day: 'QUARTA-FEIRA',
-  },
-  {
-    date: '06/JUNHO/2026',
-    day: 'TERÇA-FEIRA',
-  },
-  {
-    date: '05/JUNHO/2026',
-    day: 'SEGUNDA-FEIRA',
-  },
-  {
-    date: '04/JUNHO/2026',
-    day: 'DOMINGO',
-  },
-  {
-    date: '03/JUNHO/2026',
-    day: 'SÁBADO',
-  },
-])
+const historyMenuId = ref('jantar')
+const history = ref([])
+const historyLoading = ref(false)
+const saveMessage = ref('')
+const saveError = ref('')
+const saving = ref(false)
+const hydratedMenus = new Set()
+const previewSource = ref(null)
+const todayLabel = formatMenuDate().date
 
 /*
 |--------------------------------------------------------------------------
@@ -113,12 +84,26 @@ const showDateField = computed(() =>
 
 const editorSections = computed(() => {
   if (!isA4Menu.value) return []
-  return selectedPdf.value.pages.flatMap((page) => page.sections)
+  return selectedPdf.value.pages?.flatMap((page) => page.sections || []) || []
 })
 
-const previewMenu = computed(() => selectedPdf.value)
+const previewMenu = computed(() => previewSource.value || selectedPdf.value)
+
+const historyMenu = computed(() => menuById[historyMenuId.value])
+
+const greetingName = computed(() => currentUser.value?.username || 'admin KA BRU')
 
 const itemHas = (item, key) => Object.prototype.hasOwnProperty.call(item, key)
+
+const withHistoryDates = (versions) =>
+  versions.map((item) => {
+    const labels = formatMenuDate(item.created_at)
+    return {
+      ...item,
+      date: labels.date,
+      day: labels.day,
+    }
+  })
 
 /*
 |--------------------------------------------------------------------------
@@ -134,54 +119,191 @@ const selectLanguage = (language) => {
   selectedLanguage.value = language
 }
 
-const addOption = (section) => {
-  const menu = selectedPdf.value
-  if (!menu) return
+const sampleItemShape = () => {
+  for (const section of editorSections.value) {
+    if (section.items?.[0]) return section.items[0]
+  }
 
-  const sample = section.items[0]
+  const menuId = selectedPdf.value?.id
+  if (menuId === 'vinhos') return { name: '', subtitle: '', price: '' }
+  if (menuId === 'drinks') return { name: '', description: '', price: '' }
+  return { description: '', price: '' }
+}
+
+const createItem = (section) => {
+  const menu = selectedPdf.value
+  const sample = section?.items?.[0] || sampleItemShape()
   const item = {
-    id: `${menu.id}-${section.id}-${Date.now()}`,
+    id: `${menu.id}-${section?.id || 'item'}-${Date.now()}`,
     price: '0',
   }
 
-  if (sample && itemHas(sample, 'name')) {
-    item.name = 'NOVA OPÇÃO'
-  }
+  if (itemHas(sample, 'name')) item.name = 'NOVA OPÇÃO'
+  if (itemHas(sample, 'description')) item.description = 'nova opção'
+  if (itemHas(sample, 'subtitle')) item.subtitle = ''
 
-  if (!sample || itemHas(sample, 'description')) {
-    item.description = 'nova opção'
-  }
+  return item
+}
 
-  if (sample && itemHas(sample, 'subtitle')) {
-    item.subtitle = ''
+const categoryTitleValue = (section) => {
+  if (Array.isArray(section.titleLines) && section.titleLines.length) {
+    return section.titleLines.join('\n')
   }
+  return section.title || ''
+}
 
-  section.items.push(item)
+const autosizeCategory = (el) => {
+  if (!el || el.tagName !== 'TEXTAREA') return
+  el.style.height = 'auto'
+  el.style.height = `${el.scrollHeight}px`
+}
+
+const resizeCategoryFields = async () => {
+  await nextTick()
+  document.querySelectorAll('.dashboard .category-input').forEach(autosizeCategory)
+}
+
+const onCategoryTitleInput = (section, event) => {
+  const el = event.target
+  const caret = el.selectionStart
+  const value = (el.value || '').toUpperCase()
+  const lines = value.split('\n')
+
+  section.titleLines = lines
+  section.title = lines.map((line) => line.trim()).filter(Boolean).join(' ') || ''
+
+  nextTick(() => {
+    el.setSelectionRange(caret, caret)
+    autosizeCategory(el)
+  })
+}
+
+const addOption = (section) => {
+  if (!selectedPdf.value || !section) return
+  section.items.push(createItem(section))
 }
 
 const removeOption = (section, optionId) => {
   section.items = section.items.filter((item) => item.id !== optionId)
 }
 
-const saveVersion = () => {
-  console.log('Salvar versão', {
-    menu: currentMenu.value,
-    language: selectedLanguage.value,
-    pdf: selectedPdf.value,
-  })
+const createCategory = () => {
+  const menu = selectedPdf.value
+  const section = {
+    id: `${menu.id}-cat-${Date.now()}`,
+    title: 'NOVA CATEGORIA',
+    titleLines: ['NOVA CATEGORIA'],
+    items: [],
+  }
+  section.items.push(createItem(section))
+  return section
+}
 
-  alert('Versão salva!')
+const addCategoryAt = (flatIndex) => {
+  const menu = selectedPdf.value
+  if (!menu?.pages?.length) return
+
+  const section = createCategory()
+  let remaining = Math.max(0, flatIndex)
+
+  for (const page of menu.pages) {
+    if (remaining <= page.sections.length) {
+      page.sections.splice(remaining, 0, section)
+      return
+    }
+    remaining -= page.sections.length
+  }
+
+  menu.pages[menu.pages.length - 1].sections.push(section)
+}
+
+const removeCategory = (sectionId) => {
+  const menu = selectedPdf.value
+  if (!menu) return
+
+  for (const page of menu.pages) {
+    const index = page.sections.findIndex((section) => section.id === sectionId)
+    if (index !== -1) {
+      page.sections.splice(index, 1)
+      return
+    }
+  }
+}
+
+const loadHistory = async () => {
+  historyLoading.value = true
+  try {
+    const data = await listVersions(historyMenuId.value, selectedLanguage.value)
+    history.value = withHistoryDates(data.versions || [])
+  } catch {
+    history.value = []
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+const hydrateSelectedMenu = async () => {
+  const key = `${selectedMenu.value}:${selectedLanguage.value}`
+  if (hydratedMenus.has(key)) return
+
+  const menu = menuByDashboardName[selectedMenu.value]
+  if (!menu) return
+
+  try {
+    const data = await getCurrentVersion(menu.id, selectedLanguage.value)
+    if (data.version?.payload) {
+      pdfMenus[selectedMenu.value] = data.version.payload
+    }
+  } catch {
+    // Keep the seeded menu if the API is unavailable.
+  } finally {
+    hydratedMenus.add(key)
+  }
+}
+
+const saveVersion = async () => {
+  const menu = menuByDashboardName[selectedMenu.value]
+  if (!menu || !selectedPdf.value) return
+
+  saving.value = true
+  saveMessage.value = ''
+  saveError.value = ''
+  try {
+    await saveMenuVersion(menu.id, selectedLanguage.value, selectedPdf.value)
+    hydratedMenus.add(`${selectedMenu.value}:${selectedLanguage.value}`)
+    saveMessage.value = 'Versão salva.'
+    if (historyMenuId.value === menu.id) await loadHistory()
+    window.setTimeout(() => {
+      saveMessage.value = ''
+    }, 3000)
+  } catch (error) {
+    saveError.value = error.message || 'Não foi possível salvar.'
+  } finally {
+    saving.value = false
+  }
 }
 
 const showPreview = ref(false)
 
 const previewVersion = () => {
-  if (!previewMenu.value) return
+  if (!selectedPdf.value) return
+  previewSource.value = null
   showPreview.value = true
+}
+
+const previewHistoryVersion = async (item) => {
+  try {
+    const version = await getVersion(item.id)
+    previewSource.value = version.payload
+    showPreview.value = true
+  } catch {
+    saveError.value = 'Não foi possível abrir esta versão.'
+  }
 }
 
 const closePreview = () => {
   showPreview.value = false
+  previewSource.value = null
 }
 
 watch(showPreview, (open) => {
@@ -193,6 +315,10 @@ const onPreviewKeydown = (event) => {
 }
 
 window.addEventListener('keydown', onPreviewKeydown)
+
+watch([selectedMenu, editorSections], () => {
+  resizeCategoryFields()
+}, { flush: 'post' })
 
 const printing = ref(false)
 let printStarted = false
@@ -221,7 +347,7 @@ const onPrintDocumentReady = async () => {
     await Promise.all(
       images.map((img) => {
         if (img.complete) return Promise.resolve()
-        if (img.decode) return img.decode().catch(() => {})
+        if (img.decode) return img.decode().catch(() => { })
         return new Promise((resolve) => {
           img.addEventListener('load', resolve, { once: true })
           img.addEventListener('error', resolve, { once: true })
@@ -247,12 +373,25 @@ onUnmounted(() => {
   document.body.style.overflow = ''
 })
 
-const viewHistory = (menu) => {
-  selectedMenu.value = menu.name
-  console.log('Visualizando histórico de:', menu.name)
+const selectHistoryMenu = (menuId) => {
+  historyMenuId.value = menuId
 }
 
-const logout = () => {
+watch([selectedMenu, selectedLanguage], () => {
+  hydrateSelectedMenu()
+})
+
+watch([historyMenuId, selectedLanguage], () => {
+  loadHistory()
+})
+
+onMounted(() => {
+  hydrateSelectedMenu()
+  loadHistory()
+})
+
+const logout = async () => {
+  await logoutSession()
   router.push('/login')
 }
 </script>
@@ -267,7 +406,7 @@ const logout = () => {
     <header class="topbar">
 
       <div class="topbar-date">
-        08/JUNHO/2026
+        {{ todayLabel }}
       </div>
 
       <button class="logout-button" type="button" @click="logout">
@@ -293,38 +432,8 @@ const logout = () => {
 
         <section class="greeting">
           <h1>
-            Olá, admin KA BRU!
+            Olá, {{ greetingName }}!
           </h1>
-        </section>
-
-
-        <!-- Aviso -->
-
-        <section v-if="showWarning" class="warning-box">
-
-          <div class="warning-title">
-            <span class="warning-icon">!</span>
-
-            <strong>
-              Aviso de impedimento
-            </strong>
-
-            <button class="collapse-button" @click="showWarning = false">
-              ^
-            </button>
-          </div>
-
-          <p>
-            Se o sistema informar que não é possível adicionar
-            mais campos, isso significa que o layout será comprometido.
-          </p>
-
-          <p>
-            Caso seja necessário, você pode clicar em
-            “adicionar página” ou entrar em contato para
-            resolver o layout com o Studio Morh.
-          </p>
-
         </section>
 
 
@@ -425,18 +534,14 @@ const logout = () => {
 
           <div class="history-tabs">
 
-            <button v-for="menu in [
-              'ALMOÇO',
-              'JANTAR',
-              'MANHÃ',
-              'DRINKS',
-              'VINHOS',
-              'CHEFS TABLE'
-            ]" :key="menu" :class="{
-              active:
-                menu === 'JANTAR'
-            }">
-              {{ menu }}
+            <button
+              v-for="menu in MENU_OPTIONS"
+              :key="menu.id"
+              type="button"
+              :class="{ active: historyMenuId === menu.id }"
+              @click="selectHistoryMenu(menu.id)"
+            >
+              {{ menu.tabLabel }}
             </button>
 
           </div>
@@ -446,12 +551,12 @@ const logout = () => {
 
             <span>
               exibindo histórico de:
-              <strong>MENU JANTAR</strong>
+              <strong>{{ historyMenu?.dashboardName }}</strong>
             </span>
 
             <span>
               idioma:
-              <strong>{{ selectedLanguage }}</strong> 
+              <strong>{{ selectedLanguage }}</strong>
             </span>
 
           </div>
@@ -459,7 +564,15 @@ const logout = () => {
 
           <div class="history-table">
 
-            <div v-for="item in history" :key="item.date" class="history-row">
+            <p v-if="historyLoading" class="history-empty">
+              Carregando histórico...
+            </p>
+
+            <p v-else-if="!history.length" class="history-empty">
+              Nenhuma versão salva ainda.
+            </p>
+
+            <div v-for="item in history" :key="item.id" class="history-row">
 
               <span>
                 {{ item.date }}
@@ -469,7 +582,7 @@ const logout = () => {
                 {{ item.day }}
               </span>
 
-              <button type="button" @click="previewVersion">
+              <button type="button" @click="previewHistoryVersion(item)">
                 visualizar versão
               </button>
 
@@ -523,112 +636,87 @@ const logout = () => {
 
           <template v-else>
 
-          <!-- DATA -->
+            <!-- DATA -->
 
-          <section
-            v-if="showDateField"
-            class="editor-field date-field"
-          >
+            <section v-if="showDateField" class="editor-field date-field">
 
-            <label>
-              DATA:
-            </label>
+              <label>
+                DATA:
+              </label>
 
-            <input
-              v-model="selectedPdf.date"
-              type="text"
-              placeholder="15.07.26"
-            />
-
-          </section>
-
-
-          <!-- CATEGORIAS -->
-
-          <div class="sections">
-
-            <section
-              v-for="section in editorSections"
-              :key="section.id"
-              class="menu-section"
-            >
-
-              <div class="section-title-row">
-
-                <strong>
-                  {{ section.title }}:
-                </strong>
-
-                <span>
-                  valor:
-                </span>
-
-              </div>
-
-
-              <div
-                v-for="item in section.items"
-                :key="item.id"
-                class="option-row"
-              >
-
-                <div class="option-fields">
-                  <input
-                    v-if="itemHas(item, 'name')"
-                    v-model="item.name"
-                    class="description-input"
-                    type="text"
-                    placeholder="Nome"
-                  />
-                  <input
-                    v-if="itemHas(item, 'description')"
-                    v-model="item.description"
-                    class="description-input"
-                    type="text"
-                    placeholder="Opção"
-                  />
-                  <input
-                    v-if="itemHas(item, 'subtitle')"
-                    v-model="item.subtitle"
-                    class="description-input"
-                    type="text"
-                    placeholder="Detalhe"
-                  />
-                </div>
-
-                <input
-                  v-model="item.price"
-                  class="price-input"
-                  type="text"
-                />
-
-                <button
-                  class="delete-button"
-                  type="button"
-                  @click="removeOption(section, item.id)"
-                  title="Excluir opção"
-                >
-                  ✖
-                </button>
-
-              </div>
-
-
-              <div class="add-option-container">
-
-                <button
-                  class="add-option"
-                  type="button"
-                  @click="addOption(section)"
-                >
-                  adicionar opção
-                </button>
-
-              </div>
+              <input v-model="selectedPdf.date" type="text" placeholder="15.07.26" />
 
             </section>
 
-          </div>
+
+            <!-- CATEGORIAS -->
+
+            <div class="sections">
+
+              <template v-for="(section, index) in editorSections" :key="section.id">
+
+                <button class="insert-category" type="button" @click="addCategoryAt(index)">
+                  adicionar categoria
+                </button>
+
+                <section class="menu-section">
+
+                  <div class="section-title-row">
+
+                    <textarea
+                      class="category-input"
+                      rows="1"
+                      placeholder="NOVA CATEGORIA"
+                      :value="categoryTitleValue(section)"
+                      @input="onCategoryTitleInput(section, $event)"
+                    />
+
+                    <button class="delete-button" type="button" title="Excluir categoria"
+                      @click="removeCategory(section.id)">
+                      ✖
+                    </button>
+
+                  </div>
+
+
+                  <div v-for="item in section.items" :key="item.id" class="option-row">
+
+                    <div class="option-fields">
+                      <input v-if="itemHas(item, 'name')" v-model="item.name" class="description-input" type="text"
+                        placeholder="Nome" />
+                      <input v-if="itemHas(item, 'description')" v-model="item.description" class="description-input"
+                        type="text" placeholder="Opção" />
+                      <input v-if="itemHas(item, 'subtitle')" v-model="item.subtitle" class="description-input"
+                        type="text" placeholder="Detalhe" />
+                    </div>
+
+                    <input v-model="item.price" class="price-input" type="text" />
+
+                    <button class="delete-button" type="button" @click="removeOption(section, item.id)"
+                      title="Excluir opção">
+                      ✖
+                    </button>
+
+                  </div>
+
+
+                  <div class="add-option-container">
+
+                    <button class="add-option" type="button" @click="addOption(section)">
+                      adicionar opção
+                    </button>
+
+                  </div>
+
+                </section>
+
+              </template>
+
+              <button class="insert-category" type="button" @click="addCategoryAt(editorSections.length)">
+                adicionar categoria
+              </button>
+
+            </div>
 
           </template>
 
@@ -639,32 +727,33 @@ const logout = () => {
              FOOTER ACTIONS
         ====================================================== -->
 
-        <footer class="editor-footer">
+        <div class="editor-footer-wrap">
+          <p v-if="saveMessage" class="save-feedback is-success">{{ saveMessage }}</p>
+          <p v-else-if="saveError" class="save-feedback is-error">{{ saveError }}</p>
 
-          <button class="editor-button" @click="saveVersion">
-            SALVAR VERSÃO
-          </button>
+          <footer class="editor-footer">
 
-          <button class="editor-button" @click="previewVersion">
-            VISUALIZAR
-          </button>
+            <button class="editor-button" :disabled="saving" @click="saveVersion">
+              {{ saving ? 'SALVANDO...' : 'SALVAR VERSÃO' }}
+            </button>
 
-          <button class="editor-button" @click="printPdf">
-            IMPRIMIR PDF
-          </button>
+            <button class="editor-button" @click="previewVersion">
+              VISUALIZAR
+            </button>
 
-        </footer>
+            <button class="editor-button" @click="printPdf">
+              IMPRIMIR PDF
+            </button>
+
+          </footer>
+        </div>
 
       </section>
 
     </main>
 
     <Teleport to="body">
-      <div
-        v-if="printing && previewMenu"
-        class="print-root"
-        aria-hidden="true"
-      >
+      <div v-if="printing && previewMenu" class="print-root" aria-hidden="true">
         <PdfDocument :menu="previewMenu" @ready="onPrintDocumentReady" />
       </div>
     </Teleport>
@@ -713,7 +802,8 @@ const logout = () => {
 }
 
 .dashboard button,
-.dashboard input {
+.dashboard input,
+.dashboard textarea {
   font-family: inherit;
   letter-spacing: inherit;
 }
@@ -1099,6 +1189,13 @@ const logout = () => {
   padding-bottom: 8px;
 }
 
+.history-empty {
+  margin: 0;
+  padding: 16px;
+  color: var(--kb-text);
+  font-size: 14px;
+}
+
 .history-row {
   min-height: 48px;
   display: grid;
@@ -1250,8 +1347,8 @@ const logout = () => {
 
 .section-title-row {
   display: grid;
-  grid-template-columns: 1fr 88px 22px;
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr) 22px;
+  align-items: start;
   gap: 10px;
   margin-bottom: 12px;
   font-size: 16px;
@@ -1260,12 +1357,45 @@ const logout = () => {
   color: var(--kb-brown);
 }
 
-.section-title-row span {
-  text-align: center;
-  color: var(--kb-accent);
-  font-size: 14px;
-  letter-spacing: 1px;
+.section-title-row .delete-button {
+  margin-top: 6px;
+}
+
+.category-input {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 1.45em;
+  padding: 4px 0;
+  box-sizing: border-box;
+
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+
+  color: var(--kb-brown);
+  font-size: 16px;
   font-weight: 500;
+  letter-spacing: 2px;
+  line-height: 1.45;
+  text-transform: uppercase;
+  outline: none;
+
+  resize: none;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: pre-wrap;
+  field-sizing: content;
+}
+
+.category-input::placeholder {
+  color: var(--kb-border);
+}
+
+.category-input:focus {
+  border-bottom-color: var(--kb-accent);
 }
 
 .option-row {
@@ -1360,9 +1490,65 @@ const logout = () => {
   color: #ffffff;
 }
 
+.insert-category {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  margin: 4px 0 20px;
+  padding: 8px 0;
+
+  border: 0;
+  background: transparent;
+
+  color: var(--kb-accent);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 2px;
+
+  cursor: pointer;
+}
+
+.insert-category::before,
+.insert-category::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--kb-border);
+}
+
+.insert-category:hover {
+  color: var(--kb-brown);
+}
+
+.insert-category:hover::before,
+.insert-category:hover::after {
+  background: var(--kb-accent);
+}
+
 /* =========================================
    FOOTER
 ========================================= */
+
+.editor-footer-wrap {
+  flex-shrink: 0;
+  border-top: 1px solid var(--kb-border);
+  background: #ffffff;
+}
+
+.save-feedback {
+  margin: 12px 20px 0;
+  font-size: 14px;
+}
+
+.save-feedback.is-success {
+  color: var(--kb-accent);
+}
+
+.save-feedback.is-error {
+  color: #c93232;
+}
 
 .editor-footer {
   flex-shrink: 0;
@@ -1370,7 +1556,6 @@ const logout = () => {
   grid-template-columns: 1fr 1fr 1fr;
   gap: 10px;
   padding: 16px 20px 20px;
-  border-top: 1px solid var(--kb-border);
   background: #ffffff;
 }
 
@@ -1392,6 +1577,11 @@ const logout = () => {
 .editor-button:hover {
   background: var(--kb-accent);
   color: #ffffff;
+}
+
+.editor-button:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .editor-button:first-child {
@@ -1506,7 +1696,7 @@ const logout = () => {
 
   .option-row,
   .section-title-row {
-    grid-template-columns: minmax(0, 1fr) 72px 22px;
+    grid-template-columns: minmax(0, 1fr) 22px;
   }
 
   .editor-footer {
@@ -1623,7 +1813,7 @@ const logout = () => {
     overflow: visible !important;
   }
 
-  html.printing-pdf body > *:not(.print-root) {
+  html.printing-pdf body>*:not(.print-root) {
     display: none !important;
   }
 

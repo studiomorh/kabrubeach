@@ -67,8 +67,11 @@
 
                     <!-- Button -->
                     <div class="button-container">
-                        <button type="submit" class="login-button">
-                            ENTRAR
+                        <p v-if="errorMessage" class="login-error">
+                            {{ errorMessage }}
+                        </p>
+                        <button type="submit" class="login-button" :disabled="submitting">
+                            {{ submitting ? 'ENTRANDO...' : 'ENTRAR' }}
                         </button>
                     </div>
 
@@ -84,15 +87,30 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { ApiError } from '../api/http.js'
+import { login } from '../api/session.js'
 import logo from '../assets/images/iconemarrom.svg'
 
 const router = useRouter()
 const username = ref('')
 const password = ref('')
 const showPassword = ref(false)
+const submitting = ref(false)
+const errorMessage = ref('')
 
-const handleLogin = () => {
-    router.push('/dashboard')
+const handleLogin = async () => {
+    errorMessage.value = ''
+    submitting.value = true
+    try {
+        await login(username.value, password.value)
+        router.push('/dashboard')
+    } catch (error) {
+        errorMessage.value = error instanceof ApiError
+            ? error.message
+            : 'Não foi possível entrar. Tente de novo.'
+    } finally {
+        submitting.value = false
+    }
 }
 </script>
 
@@ -302,8 +320,8 @@ const handleLogin = () => {
 
 .button-container {
     display: flex;
-    justify-content: flex-end;
-
+    flex-direction: column;
+    align-items: flex-end;
     margin-top: -2px;
 }
 
@@ -333,6 +351,19 @@ const handleLogin = () => {
 .login-button:hover {
     background: #222222;
     color: #ffffff;
+}
+
+.login-button:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.login-error {
+    margin: 0 0 12px;
+    width: 100%;
+    color: #c93232;
+    font-size: 12px;
+    letter-spacing: 0.4px;
 }
 
 .login-button:active {

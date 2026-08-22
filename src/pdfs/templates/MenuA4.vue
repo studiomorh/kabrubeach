@@ -406,12 +406,15 @@ watch(
 .pdf-section-label {
     display: flex;
     flex-direction: column;
+    min-width: 0;
     padding-top: 2px;
     font-size: 15px;
     font-weight: 500;
     letter-spacing: 3px;
     line-height: 1.35;
     color: #1a1a1a;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .pdf-center-heading {
