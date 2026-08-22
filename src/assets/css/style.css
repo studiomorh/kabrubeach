@@ -390,7 +390,7 @@ body {
 .btn-primary {
   background-color: #968473 ;
   color: white;
-  font-size: 17px;
+  font-size: 16px;
   padding: 10px 20px;
   width: 100%;
   cursor: pointer;
@@ -400,7 +400,7 @@ body {
   background-color: #ffffff ;
   border: 1px solid #968473 ;
   color: #968473;
-  font-size: 17px;
+  font-size: 16px;
   padding: 10px 20px; 
   cursor: pointer;
 
@@ -409,7 +409,7 @@ body {
 .btn-dark {
   background-color: #3b2f2b ;
   color: white;
-  font-size: 18px;
+  font-size: 16px;
   padding: 10px 20px;
   width: 100%;
   cursor: pointer;

@@ -28,7 +28,7 @@
     <div class="content">
         <div class="section1">
             <button class="btn-primary">RESTAURANTE</button>
-            <button class="btn-secondary">CONHECER</button>
+            <RouterLink to="/passeios" class="btn-secondary flex items-center justify-center">CONHECER</RouterLink>
         </div>
         <div class="section2 mt-5 ">
             <h4 class="text-start">
@@ -42,8 +42,6 @@
 
 
 
-
-
         <div class="section3 mt-12 items-start">
             <h2 class="title">Como Chegar</h2>
             <h4 class="text-start text-[#565656] mt-5">O KA BRU Beach está localizado em uma área rural.
@@ -51,8 +49,15 @@
                     Campinhos não há
                     sinal de internet.</span>
             </h4>
-            <button class="btn-dark w-full mt-5">BAIXE AS INSTRUÇÕES OFF-LINE</button>
+            <RouterLink to="/editar-pdf" class="btn-dark w-full mt-5 tracking-[2px] block text-center">
+                BAIXE AS INSTRUÇÕES OFF-LINE
+            </RouterLink>
         </div>
+
+        <div class="w-full flex justify-center items-center mt-12">
+            <div class="line w-[110px] h-[1px] bg-[#565656] mt-3 mb-3"></div>
+        </div>
+
 
         <div class="section4 mt-12 items-start">
             <h2 class="title">Funcionamento</h2>
@@ -380,6 +385,28 @@
 
 
 
+
+
+            <div class="fotos mt-5 flex gap-2 max-w-full h-[300px]">
+                <img src="/src/assets/images/fotos/food1.webp" alt="Foto 1" class="w-full h-full object-cover">
+                <img src="/src/assets/images/fotos/food4.webp" alt="Foto 3" class="w-full h-full object-cover">
+            </div>
+
+            <div class="fotos mt-2 flex max-w-full h-[500px]">
+                <img src="/src/assets/images/fotos/food5.webp" alt="Foto 1" class="w-full h-full object-cover">
+            </div>
+
+            <div class="fotos mt-2 flex gap-2 max-w-full h-[300px] mt-2">
+                <img src="/src/assets/images/fotos/food2.webp" alt="Foto 1" class="w-full h-full object-cover">
+                <img src="/src/assets/images/fotos/food3.webp" alt="Foto 3" class="w-full h-full object-cover">
+            </div>
+
+            <div class="fotos mt-2 flex flex-col gap-2 max-w-full h-[800px]">
+                <img src="/src/assets/images/fotos/food8.webp" alt="Foto 1" class="w-full h-full object-cover">
+                <img src="/src/assets/images/fotos/food9.webp" alt="Foto 3" class="w-full h-full object-cover">
+            </div>
+
+
             <!-- JANTAR -->
             <div class="dinner">
                 <h3 class="text-start text-[#3b2f2b] text-[20px] tracking-[4px] mt-10">JANTAR</h3>
@@ -449,6 +476,8 @@
 
                     </div>
 
+
+
                     <h4 class="text-start leading-tight text-[15px] font-semibold mt-5 text-[#968473]">
                         Recomendamos fazer reserva com antecedência para que nossa cozinha consiga atender a todos.
                     </h4>
@@ -493,15 +522,61 @@
 
         </div>
 
+        <div class="section7 mt-8" id="bar">
+            <h2 class="title">Bar</h2>
+            <h4 class="text-start text-[#565656] mt-5">
+                Em nosso cardápio de drinks, apresentamos uma seleção cuidadosamente elaborada de clássicos da
+                coquetelaria, reinventados com um toque minimalista.
+            </h4>
+
+            <div class="fotos mt-4">
+                <img src="/src/assets/images/fotos/drink.webp" alt="Bar" class="w-full h-auto object-cover">
+            </div>
+
+            <button class="btn-dark w-full mt-5 tracking-[2px]">CARTA DE DRINKS</button>
+        </div>
+
+
+        <div class="w-full flex justify-center items-center mt-12">
+            <div class="line w-[110px] h-[1px] bg-[#565656] mt-3 mb-3"></div>
+        </div>
+
+
+        <div class="section8 mt-8" id="peninsula">
+            <h2 class="title">Conheça a Península</h2>
+            <h4 class="text-start text-[#565656] mt-5">
+                Agende o seu passeio de lancha para conhecer as ilhas na península, descubra os pontos para visitar de
+                quadriciclo!
+            </h4>
+            <RouterLink to="/passeios" class="btn-secondary w-full mt-5 tracking-[2px] block text-center">VER TUDO</RouterLink>
+        </div>
+
+
+        <div class="w-full flex justify-center items-center mt-12">
+            <div class="line w-[110px] h-[1px] bg-[#565656] mt-3 mb-3"></div>
+        </div>
+
+
+        <div class="section9 mt-8 mb-12" id="tempo-mare">
+            <h2 class="title">Tempo e Maré</h2>
+            <h4 class="text-start text-[#565656] mt-5">
+                A condição do tempo na região do Ka Bru é sempre variável. Como estamos em frente ao mar, é importante
+                ficar atento ao céu além de verificar a previsão do dia.
+            </h4>
+            <WeatherWidget />
+        </div>
+
     </div>
 </template>
 
 <script>
 import HeaderNav from '/src/components/layout/HeaderNav.vue'
+import WeatherWidget from '/src/components/layout/WeatherWidget.vue'
 
 export default {
     components: {
-        HeaderNav
+        HeaderNav,
+        WeatherWidget
     }
 }
 </script>

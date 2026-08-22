@@ -1,6 +1,6 @@
 <template>
   <RouterView />
-  <WppButton />
+  <WppButton v-if="!['login', 'dashboard'].includes($route.name)" />
 </template>
 
 <script>
