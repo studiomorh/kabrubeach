@@ -9,7 +9,8 @@
     "dev:api": "wrangler dev --port 8787",
     "build": "vite build",
     "preview": "vite preview",
-    "db:migrate": "wrangler d1 migrations apply kabrubeach --local"
+    "db:migrate": "wrangler d1 migrations apply kabrubeach --local",
+    "deploy": "vite build && wrangler deploy"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
